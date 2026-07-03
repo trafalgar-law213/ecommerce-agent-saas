@@ -83,6 +83,13 @@ class AgentService:
         except ImportError:
             pass  # 知识库工具不可用时跳过
 
+        # 营销文案生成工具（第 4 周期）
+        try:
+            from .tools.copy_tools import generate_marketing_copy
+            self._tools.append(generate_marketing_copy)
+        except ImportError:
+            pass  # 文案工具不可用时跳过
+
     def run(
         self,
         user_message: str,
