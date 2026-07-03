@@ -45,11 +45,12 @@ async def health_check():
     return {"status": "ok", "app": APP_NAME, "version": APP_VERSION}
 
 
-# ── 注册业务路由（后续周期逐步激活） ────────────────────────────
+# ── 注册业务路由 ──────────────────────────────────────────────
 
-# 第 0 周期：路由文件已创建但为空，后续周期填充后取消注释
-# from .routers import chat, session, upload, analysis
-# app.include_router(chat.router)
-# app.include_router(session.router)
+from .routers import chat, session
+app.include_router(chat.router)
+app.include_router(session.router)
+# 后续周期激活：
+# from .routers import upload, analysis
 # app.include_router(upload.router)
 # app.include_router(analysis.router)
