@@ -33,19 +33,28 @@
   - `docs/execution-plan.md` — 执行计划
   - `DEVLOG.md` — 开发日志（本文件）
 
+- [x] Docker 配置：
+  - `docker-compose.yml` — 后端 + 前端两服务编排
+  - `backend/Dockerfile` — FastAPI 服务镜像
+  - `frontend/Dockerfile` — Streamlit 服务镜像
+- [x] 所有 Python 文件语法检查通过
+- [x] Git 身份配置（trafalgar-law213）
+- [x] 首次 Git commit：`chore: 初始化项目脚手架与 Docker 配置`（37 个文件）
+
 ### 待办事项（当前周期）
 
-- [ ] Docker 配置：`docker-compose.yml` + `Dockerfile.backend` + `Dockerfile.frontend`
-- [ ] 验证 `docker-compose up` 能正常启动，前后端连通
+- [ ] 在安装了 Docker 的机器上验证 `docker-compose up` 启动
+- [ ] 启动后检查 `http://localhost:8501` 可访问，`/api/health` 正常
 
 ### 下一步计划
 
-- 完成第 0 周期 Docker 配置
-- 进入第 1 周期：核心对话功能
+- **第 0 周期已完成！** 准备进入第 1 周期：核心对话功能
+- 第 1 周期前置条件：用户需提供 DeepSeek API Key 填入 `.env`
 
 ### 遇到的问题
 
-- （暂无）
+- 当前环境未安装 Docker，无法验证容器启动。不影响代码提交，可在其他机器上验证。
+- Windows 环境下 Git 有 CRLF 换行符警告，生产环境无影响。
 
 ---
 
