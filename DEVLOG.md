@@ -5,6 +5,54 @@
 
 ---
 
+## 2026-07-03 — 第 3 周期：知识库管理与 RAG
+
+### 完成事项
+
+- [x] `backend/app/services/rag_service.py` — RAG 知识库检索服务
+  - 文档解析：PDF（pypdf）、DOCX（python-docx）、TXT（含编码检测）
+  - 文本分块：RecursiveCharacterTextSplitter（chunk_size=500, overlap=50）
+  - 向量嵌入：moka-ai/m3e-base（768 维中文模型，通过 hf-mirror.com 镜像或本地路径加载）
+  - 存储：Chroma 向量库持久化到 `data/chroma/`
+  - 检索：`search(query, top_k)` 返回相似度分数 + 来源文档
+  - 管理：`get_document_count()` / `get_document_sources()` / `delete_document()`
+- [x] `backend/app/services/tools/kb_tools.py` — Agent 知识库检索工具
+  - `@tool search_knowledge_base(query)` — 当用户咨询运营 SOP/客服话术/流程规范时自动调用
+  - 自动判断知识库是否为空，空库时提示上传
+- [x] 知识库 API 端点（`backend/app/routers/upload.py`）：
+  - POST /api/knowledge/upload — 上传文档（PDF/DOCX/TXT，20MB 限制）
+  - GET /api/knowledge/search?q=&top_k= — 语义搜索知识库
+  - GET /api/knowledge/documents — 已上传文档列表
+- [x] `backend/app/schemas/upload.py` — 新增 KnowledgeUploadResponse、KnowledgeDocumentItem
+- [x] Agent 工具注册：`_auto_register_tools()` 新增 search_knowledge_base
+- [x] `mock_data/sample_sop.txt` — 模拟电商运营 SOP 知识库（退货流程/客服话术/发货规范/选品规则/会员体系等 7 章）
+- [x] `frontend/pages/knowledge.py` — 重写知识库管理页面
+  - 文档上传（PDF/DOCX/TXT 批量上传 + 处理进度）
+  - 已上传文档列表展示
+  - 语义搜索测试区（输入问题 → 展示检索结果 + 相关度）
+- [x] `frontend/utils/api_client.py` — 新增 `get_knowledge_documents()`
+- [x] 嵌入模型选型解决：
+  - 初始 `paraphrase-multilingual-MiniLM-L12-v2` → HuggingFace 连接超时
+  - 切换 `moka-ai/m3e-base` + hf-mirror.com 镜像下载成功
+  - 支持 `M3E_MODEL_PATH` 环境变量直接加载本地模型
+- [x] 全链路验证：
+  - 上传 sample_sop.txt → 分块 10 段 → 向量化存入 Chroma ✅
+  - 搜索"退货流程" → 返回 3 条相关结果（最高相关度 76%）✅
+  - Agent 对话"退货流程是什么？" → 自动调用 search_knowledge_base 工具 → 生成结构化回答（表格 + 特殊场景提醒）✅
+- [x] Git commit：`feat: 添加知识库 RAG 系统（Chroma 向量检索 + m3e-base 嵌入 + 文档解析）`（12 文件，+775 行）
+
+### 当前状态
+
+- 后端启动正常（uvicorn :8000/8001）
+- Agent 集成 2 个工具：analyze_sales_data（CSV）+ search_knowledge_base（知识库）
+- 项目已完成第 0/1/2/3 周期（共 6 周期），可运行
+
+### 下一步计划
+
+- **第 4 周期**：营销文案生成工具（generate_marketing_copy）
+
+---
+
 ## 2026-07-03 — 第 2 周期：CSV 上传与数据分析
 
 ### 完成事项
