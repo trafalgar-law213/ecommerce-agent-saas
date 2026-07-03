@@ -148,9 +148,9 @@ def render():
         if st.session_state.uploaded_file_id:
             st.divider()
             st.info(
-                "💡 **提示**：切换到「💬 对话助手」Tab，"
-                "你可以直接用自然语言问 AI 相关问题（如"帮我分析 Top 5 商品"），"
-                "Agent 会自动调用分析工具获取数据。"
+                '💡 **提示**：切换到「💬 对话助手」Tab，'
+                '你可以直接用自然语言问 AI 相关问题（如「帮我分析 Top 5 商品」），'
+                'Agent 会自动调用分析工具获取数据。'
             )
 
 

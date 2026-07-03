@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 
 # 后端地址（环境变量可配，默认本地开发地址）
 # 本地开发默认连 localhost；Docker 环境通过环境变量覆盖为 http://backend:8000
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").strip().rstrip("/")
 
 
 def check_backend_health() -> Tuple[bool, str]:
