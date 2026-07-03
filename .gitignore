@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Data (runtime)
+backend/data/uploads/*
+backend/data/chroma/*
+backend/data/*.db
+!backend/data/uploads/.gitkeep
+!backend/data/chroma/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml

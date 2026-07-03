@@ -1,0 +1,47 @@
+# ── Docker Compose 编排文件 ────────────────────────────────────
+# 启动命令：docker-compose up --build
+# 访问地址：http://localhost:8501
+# API 文档：http://localhost:8000/docs
+
+version: "3.9"
+
+services:
+  # ── 后端服务（FastAPI）──────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agent-saas-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # 持久化数据（SQLite、上传文件、Chroma 向量库）
+      - ./backend/data:/app/data
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - DATABASE_URL=sqlite:////app/data/app.db
+      - UPLOAD_DIR=/app/data/uploads
+      - CHROMA_DIR=/app/data/chroma
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── 前端服务（Streamlit）────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agent-saas-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
