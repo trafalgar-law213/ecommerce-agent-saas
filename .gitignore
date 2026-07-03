@@ -22,6 +22,7 @@ env/
 .env.production
 
 # Data (runtime)
+data/
 backend/data/uploads/*
 backend/data/chroma/*
 backend/data/*.db

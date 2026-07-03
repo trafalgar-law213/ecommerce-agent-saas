@@ -9,7 +9,8 @@ import requests
 from typing import Optional, Tuple
 
 # 后端地址（环境变量可配，默认本地开发地址）
-BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
+# 本地开发默认连 localhost；Docker 环境通过环境变量覆盖为 http://backend:8000
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 def check_backend_health() -> Tuple[bool, str]:
@@ -69,8 +70,33 @@ def upload_knowledge(file) -> dict:
 
 
 def get_analysis(file_id: str) -> dict:
-    """获取 CSV 分析结果。"""
+    """获取 CSV 文件基本信息。"""
     resp = requests.get(f"{BACKEND_URL}/api/analysis/{file_id}", timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def analyze_csv(file_id: str, query: str = "") -> dict:
+    """对已上传的 CSV 文件执行分析查询。
+
+    Args:
+        file_id: 文件 ID
+        query: 分析查询（如"Top 5 商品""利润率""趋势"等）
+    """
+    resp = requests.post(
+        f"{BACKEND_URL}/api/upload/csv/{file_id}/analyze",
+        params={"query": query},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_uploaded_files() -> list:
+    """获取所有已上传的文件列表（通过分析接口逐个获取）。"""
+    # 目前没有专门的列表接口，通过 sessions 类似方式
+    # 后续可以添加专门的 GET /api/uploads 接口
+    resp = requests.get(f"{BACKEND_URL}/api/upload/csv", timeout=10)
     resp.raise_for_status()
     return resp.json()
 

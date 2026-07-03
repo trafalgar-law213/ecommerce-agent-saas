@@ -47,10 +47,10 @@ async def health_check():
 
 # ── 注册业务路由 ──────────────────────────────────────────────
 
-from .routers import chat, session
+from .routers import chat, session, upload
 app.include_router(chat.router)
 app.include_router(session.router)
+app.include_router(upload.router)
 # 后续周期激活：
-# from .routers import upload, analysis
-# app.include_router(upload.router)
+# from .routers import analysis
 # app.include_router(analysis.router)

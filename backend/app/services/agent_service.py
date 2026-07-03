@@ -41,6 +41,7 @@ class AgentService:
         self._llm: Optional[ChatOpenAI] = None
         self._tools: List = []
         self._system_prompt = SYSTEM_PROMPT
+        self._auto_register_tools()
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -62,6 +63,17 @@ class AgentService:
             tools: LangChain @tool 装饰的函数列表
         """
         self._tools.extend(tools)
+
+    def _auto_register_tools(self):
+        """自动注册可用的 Agent 工具。
+
+        各周期逐步添加工具，如果工具依赖的库/文件不可用则跳过。
+        """
+        try:
+            from .tools.csv_tools import analyze_sales_data
+            self._tools.append(analyze_sales_data)
+        except ImportError:
+            pass  # CSV 工具不可用时跳过
 
     def run(
         self,
@@ -111,26 +123,71 @@ class AgentService:
         }
 
     def _run_with_tools(self, messages: List[BaseMessage]) -> dict:
-        """通过 ReAct Agent + 工具调用（第 2 周期起使用）。"""
-        from langchain.agents import create_react_agent, AgentExecutor
-        from langchain import hub
+        """通过 bind_tools + 工具调用循环执行 Agent。
 
-        # 使用 LangChain Hub 的 ReAct prompt 模板
-        prompt = hub.pull("hwchase17/react")
+        不使用 hub.pull（依赖网络），而是利用 ChatOpenAI 原生
+        tool calling 能力：LLM 自主决定是否调用工具，返回结果后继续推理。
+        """
+        # 绑定工具到 LLM（让模型知道有哪些工具可用）
+        llm_with_tools = self.llm.bind_tools(self._tools)
 
-        agent = create_react_agent(self.llm, self._tools, prompt)
-        executor = AgentExecutor(
-            agent=agent,
-            tools=self._tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=10,
-        )
+        tool_calls_log = []
+        max_turns = 5  # 防止无限循环
 
-        result = executor.invoke({"input": messages[-1].content})
+        for _ in range(max_turns):
+            response = llm_with_tools.invoke(messages)
+            messages.append(response)
+
+            # 检查是否有工具调用
+            tool_calls = getattr(response, "tool_calls", None) or []
+            if not tool_calls:
+                # 没有工具调用 → 最终回复
+                return {
+                    "reply": response.content or "抱歉，处理出错了。",
+                    "tool_calls": tool_calls_log if tool_calls_log else None,
+                }
+
+            # 执行工具调用
+            from langchain_core.messages import ToolMessage
+
+            for tc in tool_calls:
+                tool_name = tc.get("name", "")
+                tool_args = tc.get("args", {})
+                tool_id = tc.get("id", "")
+
+                # 查找并执行工具
+                tool_func = None
+                for t in self._tools:
+                    if t.name == tool_name:
+                        tool_func = t
+                        break
+
+                if tool_func:
+                    try:
+                        result = tool_func.invoke(tool_args)
+                    except Exception as e:
+                        result = f"工具执行出错：{str(e)}"
+                else:
+                    result = f"未找到工具：{tool_name}"
+
+                tool_calls_log.append({
+                    "tool": tool_name,
+                    "args": tool_args,
+                    "result": str(result)[:500],
+                })
+
+                messages.append(ToolMessage(content=str(result), tool_call_id=tool_id))
+
+        # 超过最大轮次，返回最后一条 AI 消息
+        last_ai = None
+        for m in reversed(messages):
+            if isinstance(m, AIMessage) and m.content:
+                last_ai = m
+                break
+
         return {
-            "reply": result.get("output", "抱歉，处理出错了。"),
-            "tool_calls": [],  # 后续从 executor 输出中提取
+            "reply": last_ai.content if last_ai else "抱歉，分析过程超时，请简化问题重试。",
+            "tool_calls": tool_calls_log if tool_calls_log else None,
         }
 
 

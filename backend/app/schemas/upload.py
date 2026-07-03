@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union, Any
 
 from pydantic import BaseModel
 
@@ -25,7 +25,7 @@ class AnalysisResponse(BaseModel):
     summary: str
     columns: List[str]
     row_count: int
-    analysis_result: Optional[dict] = None
+    analysis_result: Optional[Union[dict, list]] = None
     visualization_suggestion: Optional[str] = None
 
 
