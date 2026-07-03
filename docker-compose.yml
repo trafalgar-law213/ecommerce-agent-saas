@@ -17,10 +17,14 @@ services:
     volumes:
       # 持久化数据（SQLite、上传文件、Chroma 向量库）
       - ./backend/data:/app/data
+      # 本地 m3e 嵌入模型（避免每次下载）
+      - ${M3E_MODEL_PATH:-./backend/data/models/m3e-base}:/app/models/m3e-base:ro
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+      - M3E_MODEL_PATH=${M3E_MODEL_PATH:-/app/models/m3e-base}
       - DATABASE_URL=sqlite:////app/data/app.db
       - UPLOAD_DIR=/app/data/uploads
       - CHROMA_DIR=/app/data/chroma

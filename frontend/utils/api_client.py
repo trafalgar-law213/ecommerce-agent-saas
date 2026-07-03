@@ -104,8 +104,15 @@ def get_uploaded_files() -> list:
 def search_knowledge(query: str) -> dict:
     """搜索知识库。"""
     resp = requests.get(
-        f"{BACKEND_URL}/api/knowledge/search", params={"q": query}, timeout=10
+        f"{BACKEND_URL}/api/knowledge/search", params={"q": query}, timeout=30
     )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_knowledge_documents() -> list:
+    """获取知识库已上传文档列表。"""
+    resp = requests.get(f"{BACKEND_URL}/api/knowledge/documents", timeout=10)
     resp.raise_for_status()
     return resp.json()
 

@@ -5,5 +5,6 @@ Agent 工具集。
 """
 
 from .csv_tools import analyze_sales_data
+from .kb_tools import search_knowledge_base
 
-__all__ = ["analyze_sales_data"]
+__all__ = ["analyze_sales_data", "search_knowledge_base"]

@@ -69,11 +69,19 @@ class AgentService:
 
         各周期逐步添加工具，如果工具依赖的库/文件不可用则跳过。
         """
+        # CSV 数据分析工具（第 2 周期）
         try:
             from .tools.csv_tools import analyze_sales_data
             self._tools.append(analyze_sales_data)
         except ImportError:
             pass  # CSV 工具不可用时跳过
+
+        # 知识库检索工具（第 3 周期）
+        try:
+            from .tools.kb_tools import search_knowledge_base
+            self._tools.append(search_knowledge_base)
+        except ImportError:
+            pass  # 知识库工具不可用时跳过
 
     def run(
         self,
