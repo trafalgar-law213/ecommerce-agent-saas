@@ -5,6 +5,33 @@
 
 ---
 
+## 2026-07-03 — 第 4 周期：营销文案生成工具
+
+### 完成事项
+
+- [x] `backend/app/services/tools/copy_tools.py` — Agent 文案生成工具
+  - `@tool generate_marketing_copy(product_info, style, channel)` — 3 种风格 × 3 种渠道
+  - 风格：活泼（emoji + 网感）、专业（参数 + 背书）、简洁（短句 + 高密度）
+  - 渠道：小红书（种草体 + 话题标签）、朋友圈（日常分享体）、详情页（卖点 bullet points）
+  - 工具内独立 ChatOpenAI 实例（temperature=0.85，增强创意）
+  - 严格的提示词模板：不编造卖点、直接输出文案正文
+- [x] Agent 工具注册：`_auto_register_tools()` 新增 generate_marketing_copy
+- [x] 实测验证：
+  - 输入"给 299 元无线降噪蓝牙耳机写小红书种草文案"
+  - Agent 自动调用 generate_marketing_copy → 输出高质量小红书文案（标题 + 正文 + emoji + 场景痛点）
+- [x] Git commit：`feat: 添加 generate_marketing_copy 文案生成工具`（3 文件，+113 行）
+
+### 当前状态
+
+- Agent 集成 3 个工具：analyze_sales_data + search_knowledge_base + generate_marketing_copy
+- 项目已完成第 0/1/2/3/4 周期（共 6 周期），核心功能齐备
+
+### 下一步计划
+
+- **第 5 周期**：集成测试、文档完善、Docker 验证、GitHub 推送
+
+---
+
 ## 2026-07-03 — 第 3 周期：知识库管理与 RAG
 
 ### 完成事项
