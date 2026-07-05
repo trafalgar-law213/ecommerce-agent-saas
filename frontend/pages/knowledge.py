@@ -94,7 +94,8 @@ def render():
                 st.caption(f"状态：{doc.get('status', '')}")
             with col4:
                 filename = doc["filename"]
-                if st.button("🗑️ 删除", key=f"del_{filename}", use_container_width=True):
+                file_id = doc.get("file_id", filename)
+                if st.button("🗑️ 删除", key=f"del_kb_{file_id}", use_container_width=True):
                     try:
                         delete_knowledge_document(filename)
                         st.success(f"已删除「{filename}」")
