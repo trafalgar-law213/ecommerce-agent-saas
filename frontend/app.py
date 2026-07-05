@@ -40,13 +40,13 @@ tab_chat, tab_analysis, tab_knowledge = st.tabs(
 )
 
 with tab_chat:
-    from pages import chat
+    from tabs import chat
     chat.render()
 
 with tab_analysis:
-    from pages import analysis
+    from tabs import analysis
     analysis.render()
 
 with tab_knowledge:
-    from pages import knowledge
+    from tabs import knowledge
     knowledge.render()

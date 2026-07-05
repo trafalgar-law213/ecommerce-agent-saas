@@ -94,23 +94,33 @@ def analyze(df: pd.DataFrame, query: str) -> dict:
     query_lower = query.lower()
 
     # ── 检测查询类型 ──────────────────────────────────────────
-    # Top N 检测
-    if _match_any(query_lower, ["top", "排名", "前", "最高", "最低", "top n"]):
+    # Top N 检测（排名/最好/最差/前N/Top N/卖得最好）
+    if _match_any(query_lower, [
+        "top", "排名", "前", "最高", "最低", "最好", "最差",
+        "卖得最好", "卖得最差", "销量最高", "销量最低",
+    ]):
         return _analyze_top_n(df, query)
 
     # 利润率检测
-    if _match_any(query_lower, ["利润", "利润率", "profit", "margin", "毛利", "成本"]):
+    if _match_any(query_lower, [
+        "利润", "利润率", "profit", "margin", "毛利", "成本", "赚钱", "盈利",
+    ]):
         return _analyze_profit(df, query)
 
     # 趋势检测
-    if _match_any(query_lower, ["趋势", "变化", "趋势", "增长", "下降", "trend", "走势"]):
+    if _match_any(query_lower, [
+        "趋势", "变化", "增长", "下降", "trend", "走势", "波动",
+    ]):
         return _analyze_trend(df, query)
 
     # 分类汇总检测
-    if _match_any(query_lower, ["分类", "类别", "品类", "category", "汇总", "分组", "group"]):
+    if _match_any(query_lower, [
+        "分类", "类别", "品类", "category", "汇总", "分组", "group",
+        "哪个类", "各类", "每个类",
+    ]):
         return _analyze_category(df, query)
 
-    # 默认：返回整体概览
+    # 默认：返回整体概览（含"概览"、"总结"、"整体"等关键词时也走这里）
     return _analyze_overview(df)
 
 

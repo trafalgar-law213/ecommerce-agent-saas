@@ -88,19 +88,22 @@ def render():
         - `分类汇总`
         """)
 
-        col_query, col_btn = st.columns([3, 1])
-        with col_query:
-            analysis_query = st.text_input(
-                "分析需求",
-                placeholder="如：Top 10 商品、利润率、销售趋势...",
-                key="analysis_query",
-                label_visibility="collapsed",
-            )
-        with col_btn:
-            analyze_btn = st.button("🔍 分析", use_container_width=True, type="primary")
+        with st.form(key="analysis_form"):
+            col_query, col_btn = st.columns([3, 1])
+            with col_query:
+                analysis_query = st.text_input(
+                    "分析需求",
+                    placeholder="如：Top 10 商品、利润率、销售趋势...",
+                    key="analysis_query",
+                    label_visibility="collapsed",
+                )
+            with col_btn:
+                analyze_btn = st.form_submit_button(
+                    "🔍 分析", use_container_width=True, type="primary"
+                )
 
-        if analyze_btn and analysis_query:
-            _run_analysis(analysis_query)
+            if analyze_btn and analysis_query:
+                _run_analysis(analysis_query)
 
         # ── 分析结果展示 ──────────────────────────────────────
         result = st.session_state.analysis_result
@@ -113,21 +116,38 @@ def render():
                 st.markdown(summary)
 
             chart_type = result.get("visualization_suggestion")
-            chart_data = result.get("analysis_result", {})
+            analysis_data = result.get("analysis_result", {})
 
-            if chart_type and isinstance(chart_data, dict):
-                chart_inner = chart_data.get("chart_data") or chart_data
+            # 提取数据表格（优先从 records，其次从 chart_data 的值构造）
+            table_rows = []
+            if isinstance(analysis_data, dict):
+                # 有 records 字段 → 直接作为表格行
+                records = analysis_data.get("records")
+                if isinstance(records, list) and records:
+                    table_rows = records
+                # 没有 records 但有 chart_data → 用 labels + values 构造表格
+                elif not table_rows:
+                    chart_inner = analysis_data.get("chart_data") or analysis_data
+                    labels = chart_inner.get("labels", [])
+                    values = chart_inner.get("values", [])
+                    if labels and values and len(labels) == len(values):
+                        table_rows = [
+                            {"商品": lbl, "数值": val}
+                            for lbl, val in zip(labels, values)
+                        ]
+            elif isinstance(analysis_data, list):
+                table_rows = analysis_data
+
+            # ── 图表 ──────────────────────────────────────────
+            if chart_type and isinstance(analysis_data, dict):
+                chart_inner = analysis_data.get("chart_data") or analysis_data
                 labels = chart_inner.get("labels", [])
                 values = chart_inner.get("values", [])
                 chart_title = chart_inner.get("chart_title", "")
 
                 if labels and values and len(labels) == len(values):
-                    # 缩短过长标签，避免图表标签倒立
-                    short_labels = [
-                        (l[:8] + "…") if len(l) > 8 else l
-                        for l in labels
-                    ]
-                    chart_df = pd.DataFrame({"类别": short_labels, "数值": values})
+                    # 保留完整标签（不再截断，图表高度已加大）
+                    chart_df = pd.DataFrame({"类别": labels, "数值": values})
 
                     if chart_type == "bar":
                         st.bar_chart(
@@ -148,9 +168,14 @@ def render():
                             height=400,
                         )
 
-            # 表格数据
-            if isinstance(chart_data, list) and chart_data:
-                st.dataframe(pd.DataFrame(chart_data), use_container_width=True)
+            # ── 数据表格（始终显示）────────────────────────────
+            if table_rows:
+                st.caption("📋 详细数据")
+                st.dataframe(
+                    pd.DataFrame(table_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
         # ── 提示：也可在对话中使用 ────────────────────────────
         if st.session_state.uploaded_file_id:
