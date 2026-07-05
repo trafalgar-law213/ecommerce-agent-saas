@@ -5,9 +5,12 @@ RAG 知识库检索服务。
 支持 PDF、DOCX、TXT 格式，使用 m3e-base 中文嵌入模型。
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Optional, List
+
+_logger = logging.getLogger(__name__)
 
 # 设置 HuggingFace 镜像（国内下载加速）
 if not os.getenv("HF_ENDPOINT"):
@@ -150,7 +153,8 @@ class RAGService:
         try:
             collection = self.vectorstore._collection
             return collection.count()
-        except Exception:
+        except Exception as e:
+            _logger.error(f"获取文档数量失败：{e}", exc_info=True)
             return 0
 
     def get_document_sources(self) -> List[str]:
@@ -164,7 +168,8 @@ class RAGService:
                 if src:
                     sources.add(src)
             return sorted(sources)
-        except Exception:
+        except Exception as e:
+            _logger.error(f"获取文档来源列表失败：{e}", exc_info=True)
             return []
 
     def delete_document(self, filename: str) -> bool:
@@ -180,8 +185,10 @@ class RAGService:
             collection = self.vectorstore._collection
             # Chroma 按 metadata 过滤删除
             collection.delete(where={"source": filename})
+            _logger.info(f"已从知识库删除文档：{filename}")
             return True
-        except Exception:
+        except Exception as e:
+            _logger.error(f"删除文档失败（{filename}）：{e}", exc_info=True)
             return False
 
 

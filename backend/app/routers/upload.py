@@ -216,6 +216,14 @@ async def upload_knowledge(
             detail=f"不支持的文件格式：{suffix}。支持的格式：PDF、DOCX、TXT",
         )
 
+    # ── 1.5 检查同名文件是否已存在 ─────────────────────────────
+    existing_sources = rag_service.get_document_sources()
+    if file.filename in existing_sources:
+        raise HTTPException(
+            status_code=409,
+            detail=f"文档「{file.filename}」已存在于知识库中，不允许重复上传。如需更新，请先删除旧版本。",
+        )
+
     # ── 2. 保存文件 ───────────────────────────────────────────
     file_id = _generate_file_id()
     safe_filename = f"{file_id}_{file.filename}"
@@ -270,12 +278,14 @@ async def upload_knowledge(
 def search_knowledge(
     q: str = Query(..., min_length=1, description="搜索关键词或问题"),
     top_k: int = Query(5, ge=1, le=20, description="返回结果数量"),
+    synthesize: bool = Query(False, description="是否使用 AI 将检索结果合成为单个回答"),
 ):
     """在知识库中语义搜索相关内容。
 
     Args:
         q: 搜索查询（如 "退货流程" "客服话术"）
         top_k: 返回的最相关结果数量（默认 5，范围 1-20）
+        synthesize: 是否使用 AI 合成回答（默认 False，返回原始片段列表）
     """
     # 检查知识库是否有内容
     doc_count = rag_service.get_document_count()
@@ -293,10 +303,15 @@ def search_knowledge(
 
     sources = rag_service.get_document_sources()
 
+    synthesized = None
+    if synthesize and results:
+        synthesized = _synthesize_answer(q, results)
+
     return KnowledgeSearchResponse(
         query=q,
         results=results,
         total_documents=len(sources),
+        synthesized=synthesized,
     )
 
 
@@ -321,7 +336,77 @@ def list_knowledge_documents(db: DBSession = Depends(get_db)):
     ]
 
 
+@router.delete("/knowledge/documents/{filename}")
+def delete_knowledge_document(filename: str):
+    """从知识库中删除指定文档的所有分块。
+
+    Args:
+        filename: 文档文件名（原始文件名，如 sample_sop.txt）
+    """
+    success = rag_service.delete_document(filename)
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"文档「{filename}」不存在或删除失败",
+        )
+    return {"status": "ok", "filename": filename, "message": f"文档「{filename}」已从知识库中删除"}
+
+
 def _generate_file_id() -> str:
     """生成简短文件 ID。"""
     import uuid
     return str(uuid.uuid4())[:8]
+
+
+def _synthesize_answer(query: str, results: list) -> str:
+    """使用 DeepSeek 将多个检索片段合成为一个连贯的回答。
+
+    Args:
+        query: 用户原始查询
+        results: rag_service.search() 返回的片段列表
+
+    Returns:
+        AI 合成的回答文本
+    """
+    from langchain_openai import ChatOpenAI
+    from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+
+    # 拼接检索到的上下文
+    context_parts = []
+    for i, r in enumerate(results, 1):
+        source = r.get("source", "未知")
+        content = r.get("content", "")
+        context_parts.append(f"【来源 {i}：{source}】\n{content}")
+
+    context = "\n\n".join(context_parts)
+
+    prompt = f"""你是一个电商运营专家助手。请根据以下知识库检索结果，用简洁专业的中文回答用户的问题。
+
+要求：
+- 综合所有相关片段，给出一个完整、连贯的答案
+- 不要逐条列举，而是自然整合
+- 如果涉及步骤/流程，用清晰的编号列表呈现
+- 答案末尾注明参考了哪些文档来源
+- 如果检索结果不足以完整回答问题，诚实说明
+
+用户问题：{query}
+
+知识库检索结果：
+{context}
+
+请回答："""
+
+    try:
+        llm = ChatOpenAI(
+            model=DEEPSEEK_MODEL,
+            api_key=DEEPSEEK_API_KEY,
+            base_url=DEEPSEEK_BASE_URL,
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        response = llm.invoke(prompt)
+        return response.content
+    except Exception as e:
+        _logger = __import__("logging").getLogger(__name__)
+        _logger.error(f"AI 合成回答失败：{e}", exc_info=True)
+        return f"（AI 合成失败：{e}）"

@@ -12,6 +12,7 @@ from utils.api_client import (
     upload_knowledge,
     search_knowledge,
     get_knowledge_documents,
+    delete_knowledge_document,
 )
 
 
@@ -81,7 +82,7 @@ def render():
         )
     else:
         for doc in docs:
-            col1, col2, col3 = st.columns([3, 1, 1])
+            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
             with col1:
                 file_icon = {"pdf": "📕", "docx": "📘", "txt": "📄"}.get(
                     doc.get("file_type", ""), "📎"
@@ -91,6 +92,16 @@ def render():
                 st.caption(f"类型：{doc.get('file_type', '').upper()}")
             with col3:
                 st.caption(f"状态：{doc.get('status', '')}")
+            with col4:
+                filename = doc["filename"]
+                if st.button("🗑️ 删除", key=f"del_{filename}", use_container_width=True):
+                    try:
+                        delete_knowledge_document(filename)
+                        st.success(f"已删除「{filename}」")
+                        time.sleep(0.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"删除失败：{e}")
 
     st.divider()
 
@@ -107,9 +118,10 @@ def render():
     if search_query:
         with st.spinner(f"正在搜索：「{search_query}」……"):
             try:
-                result = search_knowledge(search_query)
+                result = search_knowledge(search_query, synthesize=True)
                 total = result.get("total_documents", 0)
                 results = result.get("results", [])
+                synthesized = result.get("synthesized", "")
 
                 if not results:
                     st.warning(
@@ -117,20 +129,27 @@ def render():
                         f"知识库中共有 {total} 个文档来源。"
                     )
                 else:
-                    st.success(
-                        f"找到 {len(results)} 条相关结果（知识库共 {total} 个文档来源）"
-                    )
+                    # ── AI 合成回答（优先展示）─────────────────
+                    if synthesized:
+                        st.success("✅ AI 合成回答")
+                        st.markdown(synthesized)
 
-                    for i, r in enumerate(results, 1):
-                        with st.container(border=True):
+                    # ── 原始检索片段（折叠）─────────────────────
+                    with st.expander(
+                        f"📋 检索详情（{len(results)} 个片段，来自 {total} 个文档）",
+                        expanded=False,
+                    ):
+                        for i, r in enumerate(results, 1):
                             score_pct = (
                                 (1.0 - r["score"]) * 100
                                 if r["score"] < 1.0
                                 else r["score"] * 100
                             )
                             st.caption(
-                                f"结果 {i}  ·  相关度 {score_pct:.0f}%  ·  来源：{r['source']}"
+                                f"片段 {i}  ·  相关度 {score_pct:.0f}%  ·  来源：{r['source']}"
                             )
                             st.markdown(r["content"][:1000])
+                            if i < len(results):
+                                st.divider()
             except Exception as e:
                 st.error(f"搜索失败：{e}")

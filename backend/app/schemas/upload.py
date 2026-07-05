@@ -34,6 +34,7 @@ class KnowledgeSearchResponse(BaseModel):
     query: str
     results: List[dict]  # [{"content": "...", "source": "...", "score": 0.95}, ...]
     total_documents: int  # 知识库中的文档来源数
+    synthesized: Optional[str] = None  # AI 合成回答（synthesize=true 时返回）
 
 
 class KnowledgeUploadResponse(BaseModel):

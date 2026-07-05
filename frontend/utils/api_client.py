@@ -101,10 +101,17 @@ def get_uploaded_files() -> list:
     return resp.json()
 
 
-def search_knowledge(query: str) -> dict:
-    """搜索知识库。"""
+def search_knowledge(query: str, synthesize: bool = True) -> dict:
+    """搜索知识库，默认启用 AI 合成回答。
+
+    Args:
+        query: 搜索关键词
+        synthesize: 是否使用 AI 合成回答
+    """
     resp = requests.get(
-        f"{BACKEND_URL}/api/knowledge/search", params={"q": query}, timeout=30
+        f"{BACKEND_URL}/api/knowledge/search",
+        params={"q": query, "synthesize": synthesize},
+        timeout=60,
     )
     resp.raise_for_status()
     return resp.json()
@@ -113,6 +120,15 @@ def search_knowledge(query: str) -> dict:
 def get_knowledge_documents() -> list:
     """获取知识库已上传文档列表。"""
     resp = requests.get(f"{BACKEND_URL}/api/knowledge/documents", timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def delete_knowledge_document(filename: str) -> dict:
+    """从知识库中删除指定文档。"""
+    resp = requests.delete(
+        f"{BACKEND_URL}/api/knowledge/documents/{filename}", timeout=10
+    )
     resp.raise_for_status()
     return resp.json()
 

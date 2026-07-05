@@ -32,38 +32,41 @@ def search_knowledge_base(query: str) -> str:
     if doc_count == 0:
         return (
             "ℹ️ 当前知识库中没有文档。"
-            "请提示用户先在「知识库管理」页面上传运营 SOP、客服话术等文档（支持 PDF、DOCX、TXT 格式）。"
-            "在知识库有内容之前，请根据你的通用知识尽力回答用户的问题。"
+            "请在回复中告知用户：需要先在「知识库管理」页面上传运营 SOP、客服话术等文档"
+            "（支持 PDF、DOCX、TXT 格式），上传后即可基于知识库内容回答。"
+            "本次请根据你的通用知识尽力回答用户的问题。"
         )
 
     # 执行检索
     try:
         results = rag_service.search(query, top_k=5)
     except Exception as e:
-        return f"❌ 知识库检索出错：{str(e)}。请稍后重试或提示用户检查文档格式。"
+        return f"❌ 知识库检索出错：{str(e)}。请在回复中告知用户稍后重试或检查文档格式。"
 
     if not results:
         return (
-            f"🔍 在知识库（共 {doc_count} 个文档片段）中未找到与「{query}」相关的明确内容。"
-            "请根据你的通用知识尽力回答用户的问题，并建议用户上传相关文档以获得更准确的答案。"
+            f"🔍 在知识库（共 {doc_count} 个片段）中未找到与「{query}」相关的明确内容。"
+            "请根据你的通用知识尽力回答用户的问题，并在回复末尾建议用户上传相关文档。"
         )
 
-    # 构建返回给 Agent 的文本
+    # 构建简洁的上下文给 LLM 自行合成
+    sources = list(set(r["source"] for r in results))
     output_parts = [
-        f"📚 知识库检索结果（共 {doc_count} 个片段，返回 {len(results)} 条相关结果）：",
+        f"📚 以下是从知识库中检索到的与「{query}」相关的内容（来自 {', '.join(sources)}）：",
         "",
     ]
 
     for i, r in enumerate(results, 1):
-        score_pct = (1.0 - r["score"]) * 100 if r["score"] < 1.0 else r["score"] * 100
-        output_parts.append(
-            f"--- 片段 {i}（相关度 {score_pct:.0f}%，来源：{r['source']}）---"
-        )
-        # 截断过长内容
-        content = r["content"].strip()[:800]
+        content = r["content"].strip()[:600]
+        output_parts.append(f"【参考内容 {i}】（来源：{r['source']}）")
         output_parts.append(content)
         output_parts.append("")
 
-    output_parts.append("请基于以上文档片段回答用户问题，并在回复中注明信息来源。")
+    output_parts.append(
+        "⚠️ 重要：请将以上内容**整合为一个完整、连贯的回答**，而不是逐条复述。"
+        "用自然的语言将相关知识串联起来，让用户感觉是在读一个完整的答案。"
+        "如果涉及步骤流程，用编号列表呈现。"
+        "答案末尾简要注明参考了哪些文档。"
+    )
 
     return "\n".join(output_parts)
