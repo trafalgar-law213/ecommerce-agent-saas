@@ -180,9 +180,11 @@ def _analyze_top_n(df: pd.DataFrame, query: str) -> dict:
 
     if name_col and name_col != sort_col:
         # 按商品名称聚合，求和后排名（反映各商品的真实总销售额）
-        agg_df = df.groupby(name_col)[sort_col].sum().reset_index()
+        agg_df = df.groupby(name_col).agg(
+            **{sort_col: (sort_col, "sum"), "数据行数": (sort_col, "count")}
+        ).reset_index()
         top_df = agg_df.sort_values(by=sort_col, ascending=not descending).head(n)
-        display_cols = [name_col, sort_col]
+        display_cols = [name_col, sort_col, "数据行数"]
         labels = top_df[name_col].tolist()
     else:
         top_df = df.sort_values(by=sort_col, ascending=not descending).head(n)
@@ -193,9 +195,19 @@ def _analyze_top_n(df: pd.DataFrame, query: str) -> dict:
         labels = top_df.iloc[:, 0].tolist()
 
     direction = "最高" if descending else "最低"
+
+    if name_col and name_col != sort_col:
+        row_label = f"（共 {len(top_df)} 个商品，汇总 {len(df)} 行原始数据）"
+    else:
+        row_label = f"（共 {n} 条记录）"
+
     return _to_native({
         "result_type": "top_n",
-        "summary": f"📊 **{direction} {n} 名商品**（按总{sort_col}排名）",
+        "summary": (
+            f"📊 **{direction} {n} 名**（按 **{sort_col}** 排名，"
+            f"同名商品多行数据已自动加总）\n"
+            f"{row_label}"
+        ),
         "data": top_df[display_cols].to_dict(orient="records"),
         "columns": display_cols,
         "chart_type": "bar",
