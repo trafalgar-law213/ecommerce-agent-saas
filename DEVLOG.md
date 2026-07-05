@@ -5,6 +5,47 @@
 
 ---
 
+## 2026-07-05 — 第 5 周期：文档、Docker 与收尾
+
+### 完成事项
+
+- [x] `README.md` — 完整项目文档
+  - 徽章行（Python / FastAPI / Streamlit / LangChain / Docker / License）
+  - 项目背景与痛点描述
+  - Mermaid 架构图
+  - 核心功能一览表（3 个 Agent 工具 + 触发词）
+  - 快速开始（本地运行 + Docker 部署）
+  - 完整项目目录结构注释
+  - 技术栈与选型理由表
+  - 未来规划
+- [x] `LICENSE` — MIT License
+- [x] `docker-compose.yml` 优化：
+  - 移除过时的 `version` 字段
+  - 添加 `hf-cache` 命名卷（HuggingFace 模型缓存持久化）
+  - 修复 M3E_MODEL_PATH 默认值（空值 → 自动从 HF 镜像下载）
+- [x] `start.bat` — Windows 一键启动脚本（自动找端口 + 启动前后端）
+- [x] 修复 bugs：
+  - 前端 analysis.py 中文引号与 Python 字符串冲突
+  - api_client.py BACKEND_URL 尾部空格导致连接失败
+- [x] Git commit：`docs: 添加 README、LICENSE 与 Docker 配置优化` + 前置修复提交
+
+### 当前状态
+
+- 项目 6 个迭代周期全部完成 ✅
+- Agent 集成 3 个工具，全链路验证通过
+- README 文档完善，可直接用于 GitHub 公开仓库
+- Docker 配置优化，支持一键部署
+- Git 提交历史清晰（17 个 conventional commits）
+
+### 待办（发布前检查清单）
+
+- [ ] 在 GitHub 创建公开仓库并推送
+- [ ] 仓库 About 栏填写 + Topics 标签设置
+- [ ] （可选）录制演示 GIF
+- [ ] （可选）部署到 Railway / Render 获取公网链接
+
+---
+
 ## 2026-07-03 — 第 4 周期：营销文案生成工具
 
 ### 完成事项
