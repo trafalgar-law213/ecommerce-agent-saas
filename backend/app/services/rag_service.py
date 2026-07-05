@@ -28,7 +28,7 @@ from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, CHROMA_DIR
 _EMBEDDING_MODEL = os.getenv(
     "M3E_MODEL_PATH",
     "moka-ai/m3e-base",
-)
+).strip()
 
 # ── 分块参数 ──────────────────────────────────────────────────
 _CHUNK_SIZE = 500      # 每个文本块的最大字符数

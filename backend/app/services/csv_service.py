@@ -165,31 +165,33 @@ def _analyze_top_n(df: pd.DataFrame, query: str) -> dict:
     if cn_match:
         n = int(cn_match.group(1))
 
-    # 排序
+    # 排序：如果有商品名称列，先按商品聚合求和，再排名
     descending = not _match_any(query.lower(), ["最低", "bottom", "最差", "最不"])
-    top_df = df.sort_values(by=sort_col, ascending=not descending).head(n)
 
-    if name_col:
+    if name_col and name_col != sort_col:
+        # 按商品名称聚合，求和后排名（反映各商品的真实总销售额）
+        agg_df = df.groupby(name_col)[sort_col].sum().reset_index()
+        top_df = agg_df.sort_values(by=sort_col, ascending=not descending).head(n)
         display_cols = [name_col, sort_col]
+        labels = top_df[name_col].tolist()
     else:
+        top_df = df.sort_values(by=sort_col, ascending=not descending).head(n)
         display_cols = [c for c in df.columns if c == sort_col][:1]
-        # 加上第一列作为标识
         if df.columns[0] not in display_cols:
             display_cols.insert(0, df.columns[0])
-
-    # 确保列存在
-    display_cols = [c for c in display_cols if c in df.columns]
+        display_cols = [c for c in display_cols if c in df.columns]
+        labels = top_df.iloc[:, 0].tolist()
 
     direction = "最高" if descending else "最低"
     return _to_native({
         "result_type": "top_n",
-        "summary": f"📊 **{direction} {n} 名**（按 {sort_col} 排序）",
+        "summary": f"📊 **{direction} {n} 名商品**（按总{sort_col}排名）",
         "data": top_df[display_cols].to_dict(orient="records"),
         "columns": display_cols,
         "chart_type": "bar",
-        "chart_title": f"{direction}{n}名商品 ({sort_col})",
+        "chart_title": f"{direction}{n}名商品 (总{sort_col})",
         "chart_data": {
-            "labels": top_df[name_col].tolist() if name_col else top_df.iloc[:, 0].tolist(),
+            "labels": labels,
             "values": top_df[sort_col].tolist(),
         },
     })

@@ -122,22 +122,30 @@ def render():
                 chart_title = chart_inner.get("chart_title", "")
 
                 if labels and values and len(labels) == len(values):
-                    chart_df = pd.DataFrame({"类别": labels, "数值": values})
+                    # 缩短过长标签，避免图表标签倒立
+                    short_labels = [
+                        (l[:8] + "…") if len(l) > 8 else l
+                        for l in labels
+                    ]
+                    chart_df = pd.DataFrame({"类别": short_labels, "数值": values})
 
                     if chart_type == "bar":
                         st.bar_chart(
                             chart_df.set_index("类别"),
                             use_container_width=True,
+                            height=400,
                         )
                     elif chart_type == "line":
                         st.line_chart(
                             chart_df.set_index("类别"),
                             use_container_width=True,
+                            height=400,
                         )
                     else:
                         st.bar_chart(
                             chart_df.set_index("类别"),
                             use_container_width=True,
+                            height=400,
                         )
 
             # 表格数据
