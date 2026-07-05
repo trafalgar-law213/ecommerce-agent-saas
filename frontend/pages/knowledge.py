@@ -98,9 +98,9 @@ def render():
                 if st.button("🗑️ 删除", key=f"del_kb_{file_id}", use_container_width=True):
                     try:
                         delete_knowledge_document(filename)
-                        st.success(f"已删除「{filename}」")
-                        time.sleep(0.5)
                         st.rerun()
+                    except Exception as e:
+                        st.error(f"删除失败：{e}")
                     except Exception as e:
                         st.error(f"删除失败：{e}")
 

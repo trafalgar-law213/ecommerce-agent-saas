@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 from typing import Optional, List
 
+import chromadb
+
 _logger = logging.getLogger(__name__)
 
 # 设置 HuggingFace 镜像（国内下载加速）
@@ -47,6 +49,8 @@ class RAGService:
     def __init__(self):
         self._embeddings: Optional[HuggingFaceEmbeddings] = None
         self._vectorstore: Optional[Chroma] = None
+        self._chroma_client: Optional[chromadb.PersistentClient] = None
+        self._chroma_collection = None
         self._splitter = RecursiveCharacterTextSplitter(
             chunk_size=_CHUNK_SIZE,
             chunk_overlap=_CHUNK_OVERLAP,
@@ -57,18 +61,20 @@ class RAGService:
 
     @property
     def embeddings(self) -> HuggingFaceEmbeddings:
-        """延迟初始化嵌入模型。"""
+        """延迟初始化嵌入模型（仅 ingest/search 需要，约 3-10 秒）。"""
         if self._embeddings is None:
+            _logger.info("正在加载 m3e-base 嵌入模型...")
             self._embeddings = HuggingFaceEmbeddings(
                 model_name=_EMBEDDING_MODEL,
                 model_kwargs={"device": "cpu"},
                 encode_kwargs={"normalize_embeddings": True},
             )
+            _logger.info("m3e-base 嵌入模型加载完成")
         return self._embeddings
 
     @property
     def vectorstore(self) -> Chroma:
-        """延迟初始化 Chroma 向量存储。"""
+        """延迟初始化 Chroma 向量存储（需要嵌入模型）。"""
         if self._vectorstore is None:
             self._vectorstore = Chroma(
                 collection_name="knowledge_base",
@@ -76,6 +82,21 @@ class RAGService:
                 persist_directory=str(CHROMA_DIR),
             )
         return self._vectorstore
+
+    @property
+    def _collection(self):
+        """直接获取 Chroma collection（跳过嵌入模型，毫秒级）。
+
+        用于 count / list / delete 等不需要向量化的操作。
+        chromadb.PersistentClient 直接读写 Chroma 的 SQLite 存储，
+        不需要加载 HuggingFace 模型。
+        """
+        if self._chroma_collection is None:
+            self._chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+            self._chroma_collection = self._chroma_client.get_or_create_collection(
+                name="knowledge_base"
+            )
+        return self._chroma_collection
 
     # ── 文档摄取 ───────────────────────────────────────────────
 
@@ -149,19 +170,17 @@ class RAGService:
     # ── 知识库管理 ─────────────────────────────────────────────
 
     def get_document_count(self) -> int:
-        """获取知识库中已索引的文档分块总数。"""
+        """获取知识库中已索引的文档分块总数（毫秒级，不加载模型）。"""
         try:
-            collection = self.vectorstore._collection
-            return collection.count()
+            return self._collection.count()
         except Exception as e:
             _logger.error(f"获取文档数量失败：{e}", exc_info=True)
             return 0
 
     def get_document_sources(self) -> List[str]:
-        """获取知识库中所有唯一的文档来源名称。"""
+        """获取知识库中所有唯一的文档来源名称（毫秒级，不加载模型）。"""
         try:
-            collection = self.vectorstore._collection
-            result = collection.get()
+            result = self._collection.get()
             sources = set()
             for metadata in (result.get("metadatas") or []):
                 src = metadata.get("source", "")
@@ -173,7 +192,7 @@ class RAGService:
             return []
 
     def delete_document(self, filename: str) -> bool:
-        """从知识库中删除指定文档的所有分块。
+        """从知识库中删除指定文档的所有分块（毫秒级，不加载模型）。
 
         Args:
             filename: 要删除的文档文件名
@@ -182,9 +201,7 @@ class RAGService:
             True 表示删除成功，False 表示未找到
         """
         try:
-            collection = self.vectorstore._collection
-            # Chroma 按 metadata 过滤删除
-            collection.delete(where={"source": filename})
+            self._collection.delete(where={"source": filename})
             _logger.info(f"已从知识库删除文档：{filename}")
             return True
         except Exception as e:
