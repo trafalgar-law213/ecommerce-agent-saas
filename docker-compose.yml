@@ -3,8 +3,6 @@
 # 访问地址：http://localhost:8501
 # API 文档：http://localhost:8000/docs
 
-version: "3.9"
-
 services:
   # ── 后端服务（FastAPI）──────────────────────────────────────
   backend:
@@ -17,14 +15,14 @@ services:
     volumes:
       # 持久化数据（SQLite、上传文件、Chroma 向量库）
       - ./backend/data:/app/data
-      # 本地 m3e 嵌入模型（避免每次下载）
-      - ${M3E_MODEL_PATH:-./backend/data/models/m3e-base}:/app/models/m3e-base:ro
+      # HuggingFace 模型缓存（m3e-base 等嵌入模型下载后持久化）
+      - hf-cache:/root/.cache/huggingface
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
       - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
-      - M3E_MODEL_PATH=${M3E_MODEL_PATH:-/app/models/m3e-base}
+      - M3E_MODEL_PATH=${M3E_MODEL_PATH:-}
       - DATABASE_URL=sqlite:////app/data/app.db
       - UPLOAD_DIR=/app/data/uploads
       - CHROMA_DIR=/app/data/chroma
@@ -49,3 +47,6 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  hf-cache:
