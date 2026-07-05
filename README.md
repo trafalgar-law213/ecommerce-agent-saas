@@ -135,11 +135,11 @@ docker-compose up --build
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
-│   ├── app.py                   # Streamlit 主入口
-│   ├── pages/                   # 三个 Tab 页面
-│   │   ├── chat.py
-│   │   ├── analysis.py
-│   │   └── knowledge.py
+│   ├── app.py                   # Streamlit 主入口（三 Tab 导航）
+│   ├── tabs/                    # Tab 页面实现
+│   │   ├── chat.py              # 对话助手
+│   │   ├── analysis.py          # 数据上传分析
+│   │   └── knowledge.py         # 知识库管理
 │   ├── utils/api_client.py      # FastAPI HTTP 封装
 │   ├── requirements.txt
 │   └── Dockerfile
