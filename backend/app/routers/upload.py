@@ -337,19 +337,55 @@ def list_knowledge_documents(db: DBSession = Depends(get_db)):
 
 
 @router.delete("/knowledge/documents/{filename}")
-def delete_knowledge_document(filename: str):
-    """从知识库中删除指定文档的所有分块。
+def delete_knowledge_document(
+    filename: str,
+    db: DBSession = Depends(get_db),
+):
+    """从知识库中彻底删除指定文档。
 
-    Args:
-        filename: 文档文件名（原始文件名，如 sample_sop.txt）
+    删除范围：
+    1. Chroma 向量库中的所有分块
+    2. uploaded_files 表中的所有同名数据库记录
+    3. data/uploads/ 中的磁盘文件
     """
-    success = rag_service.delete_document(filename)
-    if not success:
+    deleted_count = 0
+
+    # ── 1. 删除 Chroma 向量数据 ──────────────────────────────
+    chroma_deleted = rag_service.delete_document(filename)
+
+    # ── 2. 删除数据库中的所有同名记录 ─────────────────────────
+    db_records = (
+        db.query(UploadedFile)
+        .filter(UploadedFile.filename == filename)
+        .all()
+    )
+    for record in db_records:
+        # 删除磁盘文件
+        file_path = Path(record.file_path) if record.file_path else None
+        if file_path and file_path.exists():
+            try:
+                file_path.unlink()
+            except Exception:
+                pass  # 文件可能已被删除，忽略
+        db.delete(record)
+        deleted_count += 1
+
+    db.commit()
+
+    # ── 3. 判断结果 ──────────────────────────────────────────
+    if deleted_count == 0 and not chroma_deleted:
         raise HTTPException(
             status_code=404,
-            detail=f"文档「{filename}」不存在或删除失败",
+            detail=f"文档「{filename}」不存在。可能已被删除或文件名拼写有误。",
         )
-    return {"status": "ok", "filename": filename, "message": f"文档「{filename}」已从知识库中删除"}
+
+    return {
+        "status": "ok",
+        "filename": filename,
+        "deleted_records": deleted_count,
+        "chroma_deleted": chroma_deleted,
+        "message": f"文档「{filename}」已彻底删除（数据库 {deleted_count} 条记录 + Chroma 分块）",
+    }
 
 
 def _generate_file_id() -> str:

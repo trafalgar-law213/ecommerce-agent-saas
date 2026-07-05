@@ -6,6 +6,7 @@ Streamlit 前端 — API 调用工具。
 
 import os
 import requests
+from urllib.parse import quote
 from typing import Optional, Tuple
 
 # 后端地址（环境变量可配，默认本地开发地址）
@@ -126,8 +127,9 @@ def get_knowledge_documents() -> list:
 
 def delete_knowledge_document(filename: str) -> dict:
     """从知识库中删除指定文档。"""
+    encoded = quote(filename, safe="")
     resp = requests.delete(
-        f"{BACKEND_URL}/api/knowledge/documents/{filename}", timeout=10
+        f"{BACKEND_URL}/api/knowledge/documents/{encoded}", timeout=10
     )
     resp.raise_for_status()
     return resp.json()
