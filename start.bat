@@ -3,7 +3,18 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 set PORT=8001
-set M3E_MODEL_PATH=C:\Users\Administrator\PyCharmMiscProject\m3e-base
+
+REM 自动检测 m3e-base 模型路径：先找项目同级的 m3e-base 文件夹，找不到就用 HF 镜像下载
+set M3E_MODEL_PATH=
+if exist "%~dp0..\m3e-base" (
+    echo [OK] Found local m3e-base model
+    set M3E_MODEL_PATH=%~dp0..\m3e-base
+) else if exist "C:\Users\Administrator\PyCharmMiscProject\m3e-base" (
+    echo [OK] Found m3e-base model in PyCharm project
+    set M3E_MODEL_PATH=C:\Users\Administrator\PyCharmMiscProject\m3e-base
+) else (
+    echo [INFO] No local m3e-base found, will download from HuggingFace mirror on first use ^(about 430MB^)
+)
 
 echo ============================================
 echo   E-commerce Agent SaaS - Startup
@@ -13,10 +24,14 @@ echo Backend:  http://localhost:%PORT%
 echo Frontend: http://localhost:8501
 echo.
 
-echo Step 1/2: Starting backend...
-start "Backend" /D "%~dp0backend" cmd /k "set M3E_MODEL_PATH=%M3E_MODEL_PATH% && python -m uvicorn app.main:app --host 0.0.0.0 --port %PORT%"
+echo Step 1/3: Starting backend...
+if "%M3E_MODEL_PATH%"=="" (
+    start "Backend" /D "%~dp0backend" cmd /k "python -m uvicorn app.main:app --host 0.0.0.0 --port %PORT%"
+) else (
+    start "Backend" /D "%~dp0backend" cmd /k "set M3E_MODEL_PATH=%M3E_MODEL_PATH% && python -m uvicorn app.main:app --host 0.0.0.0 --port %PORT%"
+)
 
-echo Step 2/2: Waiting for backend...
+echo Step 2/3: Waiting for backend...
 :wait
 timeout /t 2 /nobreak >nul
 python -c "import urllib.request; urllib.request.urlopen('http://localhost:%PORT%/api/health')" >nul 2>&1
