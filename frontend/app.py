@@ -35,8 +35,8 @@ st.sidebar.caption("基于 LangChain + DeepSeek")
 st.sidebar.caption("Python 3.11 · FastAPI · Chroma")
 
 # ── Tab 导航 ────────────────────────────────────────────────────
-tab_chat, tab_analysis, tab_knowledge = st.tabs(
-    ["💬 对话助手", "📊 数据上传分析", "📚 知识库管理"]
+tab_chat, tab_analysis, tab_knowledge, tab_observability = st.tabs(
+    ["💬 对话助手", "📊 数据上传分析", "📚 知识库管理", "🔍 可观测性"]
 )
 
 with tab_chat:
@@ -50,3 +50,7 @@ with tab_analysis:
 with tab_knowledge:
     from tabs import knowledge
     knowledge.render()
+
+with tab_observability:
+    from tabs import observability
+    observability.render()

@@ -5,12 +5,12 @@ Streamlit 前端 — API 调用工具。
 """
 
 import os
+import json
 import requests
 from urllib.parse import quote
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Generator, Dict, Any
 
 # 后端地址（环境变量可配，默认本地开发地址）
-# 本地开发默认连 localhost；Docker 环境通过环境变量覆盖为 http://backend:8000
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").strip().rstrip("/")
 
 
@@ -29,13 +29,52 @@ def check_backend_health() -> Tuple[bool, str]:
 
 
 def send_message(session_id: Optional[str], message: str) -> dict:
-    """发送对话消息。"""
+    """发送对话消息（非流式）。"""
     payload = {"message": message}
     if session_id:
         payload["session_id"] = session_id
-    resp = requests.post(f"{BACKEND_URL}/api/chat", json=payload, timeout=60)
+    resp = requests.post(f"{BACKEND_URL}/api/chat", json=payload, timeout=120)
     resp.raise_for_status()
     return resp.json()
+
+
+def send_message_stream(
+    session_id: Optional[str], message: str
+) -> Generator[Dict[str, Any], None, None]:
+    """发送对话消息（流式 SSE）。
+
+    逐事件 yield，事件类型：
+    - {"type": "text", "content": "..."}
+    - {"type": "tool_start", "tool": "...", "args": {...}}
+    - {"type": "tool_end", "tool": "...", "result_preview": "..."}
+    - {"type": "done", "session_id": "...", "duration_ms": N, "tool_calls": [...]}
+    - {"type": "error", "message": "..."}
+
+    Yields:
+        Dict[str, Any]: SSE 事件数据
+    """
+    payload = {"message": message}
+    if session_id:
+        payload["session_id"] = session_id
+
+    resp = requests.post(
+        f"{BACKEND_URL}/api/chat/stream",
+        json=payload,
+        timeout=180,
+        stream=True,
+    )
+    resp.raise_for_status()
+
+    for line in resp.iter_lines(decode_unicode=True):
+        if not line:
+            continue
+        if line.startswith("data: "):
+            data_str = line[6:]
+            try:
+                event = json.loads(data_str)
+                yield event
+            except json.JSONDecodeError:
+                continue
 
 
 def get_sessions() -> list:
@@ -78,12 +117,7 @@ def get_analysis(file_id: str) -> dict:
 
 
 def analyze_csv(file_id: str, query: str = "") -> dict:
-    """对已上传的 CSV 文件执行分析查询。
-
-    Args:
-        file_id: 文件 ID
-        query: 分析查询（如"Top 5 商品""利润率""趋势"等）
-    """
+    """对已上传的 CSV 文件执行分析查询。"""
     resp = requests.post(
         f"{BACKEND_URL}/api/upload/csv/{file_id}/analyze",
         params={"query": query},
@@ -94,21 +128,14 @@ def analyze_csv(file_id: str, query: str = "") -> dict:
 
 
 def get_uploaded_files() -> list:
-    """获取所有已上传的文件列表（通过分析接口逐个获取）。"""
-    # 目前没有专门的列表接口，通过 sessions 类似方式
-    # 后续可以添加专门的 GET /api/uploads 接口
+    """获取所有已上传的文件列表。"""
     resp = requests.get(f"{BACKEND_URL}/api/upload/csv", timeout=10)
     resp.raise_for_status()
     return resp.json()
 
 
 def search_knowledge(query: str, synthesize: bool = True) -> dict:
-    """搜索知识库，默认启用 AI 合成回答。
-
-    Args:
-        query: 搜索关键词
-        synthesize: 是否使用 AI 合成回答
-    """
+    """搜索知识库，默认启用 AI 合成回答。"""
     resp = requests.get(
         f"{BACKEND_URL}/api/knowledge/search",
         params={"q": query, "synthesize": synthesize},
@@ -139,3 +166,23 @@ def delete_session(session_id: str) -> bool:
     """删除会话。"""
     resp = requests.delete(f"{BACKEND_URL}/api/sessions/{session_id}", timeout=10)
     return resp.status_code == 200
+
+
+# ── 可观测性 API ─────────────────────────────────────────────
+
+def get_observability_traces(limit: int = 50, offset: int = 0) -> dict:
+    """获取 Agent 调用追踪记录列表。"""
+    resp = requests.get(
+        f"{BACKEND_URL}/api/observability/traces",
+        params={"limit": limit, "offset": offset},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_observability_stats() -> dict:
+    """获取 Agent 调用聚合统计数据。"""
+    resp = requests.get(f"{BACKEND_URL}/api/observability/stats", timeout=10)
+    resp.raise_for_status()
+    return resp.json()

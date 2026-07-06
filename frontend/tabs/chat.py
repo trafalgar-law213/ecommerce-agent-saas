@@ -3,12 +3,14 @@
 
 多轮对话界面：
 - 左侧：会话列表（新建/切换/删除）
-- 右侧：聊天区域（历史消息 + 输入框）
+- 右侧：聊天区域（历史消息 + 流式输入）
 """
 
+import time
 import streamlit as st
 from utils.api_client import (
     send_message,
+    send_message_stream,
     get_sessions,
     get_session_messages,
     delete_session,
@@ -97,7 +99,7 @@ def render_session_sidebar():
 
 
 def render_chat_area():
-    """右侧聊天区域：消息展示 + 发送。"""
+    """右侧聊天区域：消息展示 + 流式发送。"""
     current_id = st.session_state.current_session_id
 
     if current_id:
@@ -112,14 +114,17 @@ def render_chat_area():
             st.info("👋 欢迎！你可以问我：\n\n"
                     "- 📊 帮我分析上传的销售数据\n"
                     "- ✍️ 为这款商品写一段小红书文案\n"
-                    "- 📚 退货流程是什么？\n\n"
-                    "（数据分析、文案生成、知识库功能将在后续版本中逐步开放）")
+                    "- 📚 退货流程是什么？")
         else:
             for msg in st.session_state.chat_messages:
                 role = msg["role"]
                 content = msg["content"]
                 with st.chat_message(role):
                     st.markdown(content)
+                    # 显示工具调用详情
+                    if msg.get("tool_info"):
+                        with st.expander("🔧 查看工具调用详情", expanded=False):
+                            st.caption(msg["tool_info"])
 
     st.divider()
 
@@ -130,34 +135,109 @@ def render_chat_area():
         # 立即显示用户消息
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
 
-        with st.spinner("AI 思考中..."):
+        # 使用流式调用
+        with st.chat_message("assistant"):
+            # 占位符：流式文本 + 状态信息
+            text_placeholder = st.empty()
+            status_placeholder = st.empty()
+
+            full_text = []
+            tool_info_parts = []
+            final_session_id = st.session_state.current_session_id
+
             try:
-                result = send_message(
+                event_generator = send_message_stream(
                     session_id=st.session_state.current_session_id,
                     message=user_input,
                 )
-                reply = result.get("reply", "抱歉，处理出错了。")
-                tool_calls = result.get("tool_calls")
 
-                # 更新当前 session_id（新建会话时后端返回新的 ID）
-                new_session_id = result.get("session_id")
-                if new_session_id and new_session_id != st.session_state.current_session_id:
-                    st.session_state.current_session_id = new_session_id
+                for event in event_generator:
+                    event_type = event.get("type", "")
 
-                # 显示 Agent 回复
-                st.session_state.chat_messages.append({
-                    "role": "assistant",
-                    "content": reply,
-                })
+                    if event_type == "text":
+                        # 流式文本内容
+                        chunk = event.get("content", "")
+                        full_text.append(chunk)
+                        text_placeholder.markdown("".join(full_text) + "▌")
 
-                # 如果有工具调用，显示提示
-                if tool_calls:
-                    st.caption(f"🔧 Agent 调用了工具：{len(tool_calls)} 次")
+                    elif event_type == "tool_start":
+                        tool_name = event.get("tool", "unknown")
+                        tool_args = event.get("args", {})
+                        # 友好的工具名称映射
+                        tool_labels = {
+                            "analyze_sales_data": "📊 正在分析销售数据...",
+                            "search_knowledge_base": "📚 正在检索知识库...",
+                            "generate_marketing_copy": "✍️ 正在生成文案...",
+                        }
+                        label = tool_labels.get(tool_name, f"🔧 正在调用 {tool_name}...")
+                        status_placeholder.info(label)
+
+                    elif event_type == "tool_end":
+                        tool_name = event.get("tool", "unknown")
+                        result_preview = event.get("result_preview", "")
+                        status_placeholder.success(f"✅ {tool_name} 完成")
+                        tool_info_parts.append(
+                            f"**{tool_name}** 返回 {len(result_preview)} 字符"
+                        )
+
+                    elif event_type == "done":
+                        # 移除光标，显示完整文本
+                        final_text = "".join(full_text)
+                        text_placeholder.markdown(final_text)
+
+                        # 更新 session_id
+                        new_id = event.get("session_id")
+                        if new_id:
+                            final_session_id = new_id
+
+                        # 显示性能指标
+                        duration_ms = event.get("duration_ms", 0)
+                        duration_s = duration_ms / 1000
+                        tool_calls = event.get("tool_calls") or []
+
+                        metrics_parts = []
+                        if duration_ms > 0:
+                            metrics_parts.append(f"⏱ {duration_s:.1f}s")
+                        if tool_calls:
+                            metrics_parts.append(f"🔧 {len(tool_calls)} 次工具调用")
+
+                        if metrics_parts:
+                            status_placeholder.caption(" · ".join(metrics_parts))
+                        else:
+                            status_placeholder.empty()
+
+                    elif event_type == "error":
+                        status_placeholder.error(f"❌ {event.get('message', '未知错误')}")
 
             except Exception as e:
+                status_placeholder.error(f"❌ 请求失败：{str(e)}")
+                # 回退到非流式调用
+                if not full_text:
+                    try:
+                        result = send_message(
+                            session_id=st.session_state.current_session_id,
+                            message=user_input,
+                        )
+                        final_text = result.get("reply", "抱歉，处理出错了。")
+                        text_placeholder.markdown(final_text)
+                        new_id = result.get("session_id")
+                        if new_id:
+                            final_session_id = new_id
+                    except Exception as fallback_error:
+                        text_placeholder.markdown(f"❌ 请求失败：{str(fallback_error)}")
+
+            # 保存消息到 session_state
+            final_text = "".join(full_text)
+            if final_text:
+                tool_info = "\n".join(tool_info_parts) if tool_info_parts else None
                 st.session_state.chat_messages.append({
                     "role": "assistant",
-                    "content": f"❌ 请求失败：{str(e)}",
+                    "content": final_text,
+                    "tool_info": tool_info,
                 })
+
+            # 更新 session_id
+            if final_session_id != st.session_state.current_session_id:
+                st.session_state.current_session_id = final_session_id
 
         st.rerun()
