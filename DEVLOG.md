@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-07-06 — 第 7 周期：Agent 可观测性与流式输出
+
+### 完成事项
+
+- [x] AgentTrace 数据模型 — 记录每次 Agent 调用的耗时、工具列表、Token 消耗、轮次、状态
+- [x] AgentService 增加 `run_stream()` 流式方法 — 支持 SSE 事件推送（text / tool_start / tool_end / done / error）
+- [x] AgentService 增加指标追踪 — `time.perf_counter()` 计时 + `response_metadata` token 提取
+- [x] 新增 `POST /api/chat/stream` 流式对话端点 — SSE 格式，数据库在流结束后写入
+- [x] 新增 `GET /api/observability/traces` — 追踪记录列表（分页、倒序）
+- [x] 新增 `GET /api/observability/stats` — 聚合统计（成功率、平均耗时、Token 总量、工具分布）
+- [x] 前端对话助手改用流式 API — `send_message_stream()` + 实时文本显示 + 工具调用进度
+- [x] 前端新增"🔍 可观测性"Tab — 统计卡片（4 指标 + 2 指标）+ 工具分布柱状图 + 调用记录表
+- [x] 非流式 `/api/chat` 同步增加 trace 记录（向后兼容）
+- [x] 端到端验证：流式文本 → 工具调用进度 → 追踪记录 → 聚合统计 全链路通过
+- [x] SQLite JSON 字段兼容处理（token_usage 统计改用 Python 遍历）
+
+### 当前状态
+
+- 项目 7 个迭代周期
+- 28 个 conventional commits
+
+---
+
 ## 2026-07-05 — 第 6 周期：Bug 修复、性能优化与收尾
 
 ### 完成事项
